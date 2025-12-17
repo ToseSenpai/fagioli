@@ -1,0 +1,135 @@
+// Prisma Schema for Carrozzeria Fagioli MVP
+// P0 Features: Pre-Check-in + Tracking
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// CLIENTE - Customer information
+// ============================================
+model Cliente {
+  id            String    @id @default(cuid())
+  nome          String
+  cognome       String
+  telefono      String
+  email         String?
+  codiceFiscale String?
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  veicoli       Veicolo[]
+  pratiche      Pratica[]
+
+  @@index([telefono])
+}
+
+// ============================================
+// VEICOLO - Vehicle information
+// ============================================
+model Veicolo {
+  id        String    @id @default(cuid())
+  targa     String    @unique
+  marca     String
+  modello   String
+  anno      Int?
+  colore    String?
+
+  clienteId String
+  cliente   Cliente   @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  pratiche  Pratica[]
+
+  @@index([targa])
+}
+
+// ============================================
+// PRATICA - Repair case/job
+// ============================================
+model Pratica {
+  id              String    @id @default(cuid())
+  trackingCode    String    @unique  // e.g., "FAG-A1B2C3"
+
+  // Tipo intervento: SINISTRO | ESTETICO | MECCANICA
+  tipo            String
+  descrizione     String?
+
+  // Dati sinistro (solo se tipo = SINISTRO)
+  dataIncidente   DateTime?
+  luogoIncidente  String?
+  caiCompilato    Boolean   @default(false)
+  controparteNome String?
+  controparteTarga String?
+  assicurazione   String?
+  numeroPolizza   String?
+
+  // Stato e date
+  // PRE_CHECKIN | ACCETTATO | IN_ATTESA_RICAMBI | IN_LAVORAZIONE | IN_VERNICIATURA | CONTROLLO_QUALITA | PRONTO | CONSEGNATO
+  statoCorrente   String    @default("PRE_CHECKIN")
+  dataConsegnaPrevista DateTime?
+  dataConsegnaEffettiva DateTime?
+
+  // Preferenze cliente
+  dataAppuntamento DateTime?
+  oraPreferita     String?   // "mattina" | "pomeriggio"
+
+  note            String?
+
+  // Relazioni
+  clienteId       String
+  cliente         Cliente   @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  veicoloId       String
+  veicolo         Veicolo   @relation(fields: [veicoloId], references: [id], onDelete: Cascade)
+
+  storicoStati    StoricoStato[]
+  foto            Foto[]
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([trackingCode])
+  @@index([statoCorrente])
+}
+
+// ============================================
+// STORICO_STATO - Status history for tracking
+// ============================================
+model StoricoStato {
+  id          String   @id @default(cuid())
+  // PRE_CHECKIN | ACCETTATO | IN_ATTESA_RICAMBI | IN_LAVORAZIONE | IN_VERNICIATURA | CONTROLLO_QUALITA | PRONTO | CONSEGNATO
+  stato       String
+  timestamp   DateTime @default(now())
+  note        String?
+
+  praticaId   String
+  pratica     Pratica  @relation(fields: [praticaId], references: [id], onDelete: Cascade)
+
+  @@index([praticaId, timestamp])
+}
+
+// ============================================
+// FOTO - Photos attached to pratica
+// ============================================
+model Foto {
+  id          String   @id @default(cuid())
+  url         String   // Path or URL to the image
+  // FRONTE | RETRO | LATO_SINISTRO | LATO_DESTRO | DETTAGLIO_DANNO | CAI | DOCUMENTO
+  tipo        String
+
+  praticaId   String
+  pratica     Pratica  @relation(fields: [praticaId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+
+  @@index([praticaId])
+}
